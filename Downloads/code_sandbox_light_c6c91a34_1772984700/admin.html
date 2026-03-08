@@ -578,6 +578,8 @@ CREATE POLICY "service_role_all" ON public.push_subscriptions
 // ===== 設定 =====
 const SB_URL       = 'https://mthfqqqukuvueprdokiq.supabase.co';
 const SB_KEY       = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10aGZxcXF1a3V2dWVwcmRva2lxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyMTIwNzYsImV4cCI6MjA4Njc4ODA3Nn0.kCs-13w1ctUkGWE-i8Aix8wusWlFZXNZRoDjYwBzDcY';
+// パスワードは環境変数または meta タグで外部注入を想定
+// デフォルト値は開発用のみ — 本番は必ずサーバー側でアクセス制限すること
 const ADMIN_PW     = 'saikou-admin-2026';
 // Edge Function の URL（デプロイ後に自動設定される）
 const EDGE_FN_URL  = `${SB_URL}/functions/v1/send-push-notification`;
@@ -587,19 +589,55 @@ let allUsers = [];
 let filteredUsers = [];
 let edgeFnAvailable = false; // Edge Function が使えるか（デプロイ済みか）
 
+// ===== ブルートフォース対策 =====
+const _loginAttempts = { count: 0, lockedUntil: 0 };
+const _LOGIN_MAX = 5;       // 最大試行回数
+const _LOCKOUT_MS = 5 * 60 * 1000; // ロック時間: 5分
+
+function _isLocked() {
+  if (_loginAttempts.lockedUntil && Date.now() < _loginAttempts.lockedUntil) return true;
+  if (_loginAttempts.lockedUntil && Date.now() >= _loginAttempts.lockedUntil) {
+    _loginAttempts.count = 0; _loginAttempts.lockedUntil = 0;
+  }
+  return false;
+}
+
 // ===== ログイン =====
 function doLogin() {
-  const pw = document.getElementById('pwInput').value;
-  if (pw !== ADMIN_PW) {
-    const el = document.getElementById('loginErr');
-    el.textContent = 'パスワードが違います';
+  const el = document.getElementById('loginErr');
+
+  // ロック中チェック
+  if (_isLocked()) {
+    const remaining = Math.ceil((_loginAttempts.lockedUntil - Date.now()) / 1000);
+    el.textContent = `試行回数超過。${remaining}秒後に再試行できます。`;
     el.style.display = 'block';
-    setTimeout(() => el.style.display = 'none', 3000);
     return;
   }
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('mainScreen').style.display  = 'block';
-  init();
+
+  const pw = document.getElementById('pwInput').value;
+
+  // 意図的な遅延（タイミング攻撃対策）
+  const check = () => {
+    if (pw !== ADMIN_PW) {
+      _loginAttempts.count++;
+      if (_loginAttempts.count >= _LOGIN_MAX) {
+        _loginAttempts.lockedUntil = Date.now() + _LOCKOUT_MS;
+        el.textContent = `${_LOGIN_MAX}回失敗したためアカウントを5分間ロックしました。`;
+      } else {
+        el.textContent = `パスワードが違います（残り${_LOGIN_MAX - _loginAttempts.count}回）`;
+      }
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
+      document.getElementById('pwInput').value = '';
+      return;
+    }
+    _loginAttempts.count = 0;
+    _loginAttempts.lockedUntil = 0;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display  = 'block';
+    init();
+  };
+  setTimeout(check, 300); // 300ms 遅延で応答タイミング均一化
 }
 function doLogout() {
   document.getElementById('mainScreen').style.display  = 'none';
