@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Saikou Debug</title>
+  <script>
+    // パスワードゲート — 管理者以外はアクセス不可
+    (function() {
+      const KEY = 'saikou_debug_auth';
+      if (sessionStorage.getItem(KEY) === '1') return;
+      const pw = prompt('デバッグページ: 管理者パスワードを入力してください');
+      if (pw !== 'saikou-admin-2026') { location.href = '/'; }
+      else { sessionStorage.setItem(KEY, '1'); }
+    })();
+  </script>
   <style>
     body {
       font-family: monospace;
