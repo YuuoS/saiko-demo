@@ -4169,7 +4169,7 @@
       if (!confirm(`💎${cost}を消費してXP2倍チケットを購入しますか？\n購入から24時間、コミット時のXPが2倍になります。`)) return;
       currentStones -= cost;
       saveStonesLocal(currentUser.id, currentStones);
-      await _saveStoresToSupabase(currentUser.id, currentStones);
+      await pushStonesToSupabase(currentUser.id, currentStones);
       // 購入から24時間後まで有効
       const expiry24h = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       localStorage.setItem(`saikou_xp2x_${currentUser.id}`, expiry24h);
@@ -4204,7 +4204,7 @@
       if (!confirm(`💎${cost}を消費してタスクスロットを1枚追加しますか？\n最大タスク数: ${currentMax} → ${currentMax + 1}枚（永続）`)) return;
       currentStones -= cost;
       saveStonesLocal(currentUser.id, currentStones);
-      await _saveStoresToSupabase(currentUser.id, currentStones);
+      await pushStonesToSupabase(currentUser.id, currentStones);
       const extraSlots = getExtraTaskSlots(currentUser.id) + 1;
       localStorage.setItem(`saikou_extra_slots_${currentUser.id}`, String(extraSlots));
       // Supabaseにも永続化（user_stonesテーブルのextra_task_slots列）
@@ -4250,7 +4250,7 @@
       if (!confirm(`💎${cost}を消費して7日ストリーク保険を購入しますか？\n今日から7日間、さぼってもストリークが継続します。`)) return;
       currentStones -= cost;
       saveStonesLocal(currentUser.id, currentStones);
-      await _saveStoresToSupabase(currentUser.id, currentStones);
+      await pushStonesToSupabase(currentUser.id, currentStones);
       // 今日から7日後の23:59:59まで有効
       const expiry = new Date();
       expiry.setDate(expiry.getDate() + 7);
